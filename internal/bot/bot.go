@@ -4,14 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	// "github.com/coder/websocket"
-)
-
-const (
-	//TODO: Remove bot token and put it as a env
-	botToken = "MTM1MzU3NTY3NzEzNTQyNTU0Nw.GHSxaY.7KV0iuIOEcCZTbCKwISLFRIpmeyUMCp9NYC988"
-	apiBase  = "https://discord.com/api/v10"
 )
 
 type GatewayResponse struct {
@@ -25,16 +18,7 @@ type GatewayResponse struct {
 	} `json:"session_start_limit"`
 }
 
-func getGatewayUrl() (string, error) {
-	botToken, ok := os.LookupEnv("BOT_TOKEN")
-	if !ok {
-		return "", fmt.Errorf("Bot token does not exist in the environment variables")
-	}
-	apiBase, ok := os.LookupEnv("API_BASE")
-	if !ok {
-		return "", fmt.Errorf("API_BASE url does not exist in the environment variables")
-	}
-
+func GetGatewayUrl(botToken, apiBase string) (string, error) {
 	req, reqErr := http.NewRequest("GET", apiBase+"/gateway/bot", nil)
 	if reqErr != nil {
 		return "", reqErr
@@ -56,15 +40,9 @@ func getGatewayUrl() (string, error) {
 	return gatewayResponse.URL + "/?v=10&encoding=json", nil
 }
 
-// func ConnectToDiscord() {
-// 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-// 	defer cancel()
-//
-// }
-
-func StartBot() error {
+func StartBot(botToken, apiBase string) error {
 	fmt.Println("Starting bot")
-	url, gatewayErr := getGatewayUrl()
+	url, gatewayErr := GetGatewayUrl(botToken, apiBase)
 	if gatewayErr != nil {
 		return gatewayErr
 	}
