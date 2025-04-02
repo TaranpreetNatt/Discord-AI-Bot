@@ -7,29 +7,39 @@ import (
 	// "github.com/coder/websocket"
 )
 
-type GatewayResponse struct {
-	URL               string `json:"url"`
-	Shards            int    `json:"shards"`
-	SessionStartLimit struct {
-		Total          int `json:"total"`
-		Remaining      int `json:"remaining"`
-		ResetAfter     int `json:"reset_after"`
-		MaxConcurrency int `json:"max_concurrency"`
-	} `json:"session_start_limit"`
+type SessionStartLimit struct {
+	Total          int `json:"total"`
+	Remaining      int `json:"remaining"`
+	ResetAfter     int `json:"reset_after"`
+	MaxConcurrency int `json:"max_concurrency"`
 }
 
-func GetGatewayUrl(botToken, apiBase string) (string, error) {
+type GatewayResponse struct {
+	URL               string            `json:"url"`
+	Shards            int               `json:"shards"`
+	SessionStartLimit SessionStartLimit `json:"session_start_limit"`
+}
+
+func GetGatewayUrl(botToken, apiBase string, client *http.Client) (string, error) {
 	req, reqErr := http.NewRequest("GET", apiBase+"/gateway/bot", nil)
 	if reqErr != nil {
 		return "", reqErr
 	}
 	req.Header.Set("Authorization", "Bot "+botToken)
-	client := &http.Client{}
+
+	if client == nil {
+		client = &http.Client{}
+	}
+
 	resp, respErr := client.Do(req)
 	if respErr != nil {
 		return "", respErr
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Unexpected return status code: %s", resp.Status)
+	}
 
 	var gatewayResponse GatewayResponse
 	unmarshalErr := json.NewDecoder(resp.Body).Decode(&gatewayResponse)
@@ -42,7 +52,7 @@ func GetGatewayUrl(botToken, apiBase string) (string, error) {
 
 func StartBot(botToken, apiBase string) error {
 	fmt.Println("Starting bot")
-	url, gatewayErr := GetGatewayUrl(botToken, apiBase)
+	url, gatewayErr := GetGatewayUrl(botToken, apiBase, nil)
 	if gatewayErr != nil {
 		return gatewayErr
 	}
