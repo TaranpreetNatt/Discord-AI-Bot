@@ -38,6 +38,27 @@ func TestGetGatewayUrl(t *testing.T) {
 			wantURL: "",
 			wantErr: true,
 		},
+		{
+			name:    "Invalid json response",
+			token:   "invalid_json",
+			apiBase: apiBase,
+			wantURL: "",
+			wantErr: true,
+		},
+		{
+			name:    "500 internal server error",
+			token:   "internal_server_error",
+			apiBase: apiBase,
+			wantURL: "",
+			wantErr: true,
+		},
+		{
+			name:    "Missing discord URL field",
+			token:   "missing_url_field",
+			apiBase: apiBase,
+			wantURL: "",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

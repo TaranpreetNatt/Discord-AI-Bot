@@ -7,6 +7,10 @@ import (
 	// "github.com/coder/websocket"
 )
 
+const (
+	discordApiVersion = "/?v=10&encoding=json"
+)
+
 type SessionStartLimit struct {
 	Total          int `json:"total"`
 	Remaining      int `json:"remaining"`
@@ -47,7 +51,11 @@ func GetGatewayUrl(botToken, apiBase string, client *http.Client) (string, error
 		return "", unmarshalErr
 	}
 
-	return gatewayResponse.URL + "/?v=10&encoding=json", nil
+	if gatewayResponse.URL == "" {
+		return "", fmt.Errorf("Missing field url, after receiving data from server with 200")
+	}
+
+	return (gatewayResponse.URL + discordApiVersion), nil
 }
 
 func StartBot(botToken, apiBase string) error {
