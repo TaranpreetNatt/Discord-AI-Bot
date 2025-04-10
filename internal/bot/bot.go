@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 	// "github.com/coder/websocket"
 )
 
@@ -26,6 +27,13 @@ type GatewayResponse struct {
 }
 
 func GetGatewayUrl(ctx context.Context, botToken, apiBase string, client *http.Client) (string, error) {
+
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+	}
+
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", apiBase+"/gateway/bot", nil)
 	if reqErr != nil {
 		return "", reqErr

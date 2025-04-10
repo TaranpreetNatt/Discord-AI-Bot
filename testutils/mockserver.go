@@ -15,6 +15,7 @@ import (
 
 func NewMockServer(t *testing.T, validToken string) (*httptest.Server, *http.Client) {
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		auth := r.Header.Get("Authorization")
 		switch auth {
 
@@ -29,6 +30,7 @@ func NewMockServer(t *testing.T, validToken string) (*httptest.Server, *http.Cli
 					MaxConcurrency: 1,
 				},
 			}
+
 			w.Header().Set("Content-Type", "application/json")
 			encodeErr := json.NewEncoder(w).Encode(response)
 			if encodeErr != nil {

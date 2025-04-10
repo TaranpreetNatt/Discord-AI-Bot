@@ -3,6 +3,7 @@ package bot_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	bot "github.com/taranpreetnatt/Discord-AI-Bot/internal/bot"
 	"github.com/taranpreetnatt/Discord-AI-Bot/testutils"
@@ -22,6 +23,9 @@ func TestGetGatewayUrl(t *testing.T) {
 
 	ctxCancel, cancel := context.WithCancel(ctx)
 	cancel()
+
+	ctxTimeout, timeoutCancel := context.WithTimeout(ctx, -1*time.Second)
+	defer timeoutCancel()
 
 	tests := []struct {
 		name    string
@@ -78,6 +82,14 @@ func TestGetGatewayUrl(t *testing.T) {
 			wantURL: "",
 			wantErr: true,
 			ctx:     ctxCancel,
+		},
+		{
+			name:    "Context timeout",
+			token:   test_token,
+			apiBase: apiBase,
+			wantURL: "",
+			wantErr: true,
+			ctx:     ctxTimeout,
 		},
 	}
 
