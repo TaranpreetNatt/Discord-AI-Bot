@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/joho/godotenv"
 	bot "github.com/taranpreetnatt/Discord-AI-Bot/internal/bot"
@@ -49,7 +52,21 @@ func getEnv(key string) string {
 func main() {
 	config := loadConfig()
 
-	err := bot.StartBot(config.BOT_TOKEN, config.API_BASE)
+	ctx := context.Background()
+
+	cancelCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT)
+
+	go func() {
+		<-sigChan
+		fmt.Println("Shutting bot down due to cancellation")
+		cancel()
+	}()
+
+	err := bot.StartBot(cancelCtx, config.BOT_TOKEN, config.API_BASE)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)

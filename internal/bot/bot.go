@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,8 +25,8 @@ type GatewayResponse struct {
 	SessionStartLimit SessionStartLimit `json:"session_start_limit"`
 }
 
-func GetGatewayUrl(botToken, apiBase string, client *http.Client) (string, error) {
-	req, reqErr := http.NewRequest("GET", apiBase+"/gateway/bot", nil)
+func GetGatewayUrl(ctx context.Context, botToken, apiBase string, client *http.Client) (string, error) {
+	req, reqErr := http.NewRequestWithContext(ctx, "GET", apiBase+"/gateway/bot", nil)
 	if reqErr != nil {
 		return "", reqErr
 	}
@@ -37,7 +38,7 @@ func GetGatewayUrl(botToken, apiBase string, client *http.Client) (string, error
 
 	resp, respErr := client.Do(req)
 	if respErr != nil {
-		return "", respErr
+		return "", fmt.Errorf("Request failed: %v", respErr)
 	}
 	defer resp.Body.Close()
 
@@ -58,9 +59,9 @@ func GetGatewayUrl(botToken, apiBase string, client *http.Client) (string, error
 	return (gatewayResponse.URL + discordApiVersion), nil
 }
 
-func StartBot(botToken, apiBase string) error {
+func StartBot(ctx context.Context, botToken, apiBase string) error {
 	fmt.Println("Starting bot")
-	url, gatewayErr := GetGatewayUrl(botToken, apiBase, nil)
+	url, gatewayErr := GetGatewayUrl(ctx, botToken, apiBase, nil)
 	if gatewayErr != nil {
 		return gatewayErr
 	}
