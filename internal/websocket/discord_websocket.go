@@ -137,11 +137,21 @@ func (w *WebSocketConn) sendHeartBeat(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("Sending heartbeatmessage: %+v\n", heartbeat)
+	w.mu.Lock()
+	fmt.Println("Mutex locked in sendHeartBeat")
+
+	defer func() {
+		w.mu.Unlock()
+		fmt.Println("Mutex unlocked in sendHeartBeat")
+	}()
+
 	if err := w.Conn.Write(ctx, websocket.MessageText, heartbeatmessage); err != nil {
 		fmt.Printf("Error writing to discord during heartbeat: %v\n", err)
+		w.mu.Unlock()
+		fmt.Println("Mutex unlocked in sendHeartBeat")
 		return err
 	}
+	fmt.Printf("Sent HeartBeat to Discord: %+v\n", heartbeat)
 	return nil
 }
 
@@ -150,6 +160,7 @@ func setJitter(heartbeatinterval int, rand float64) time.Duration {
 	return time.Duration(interval) * time.Millisecond
 }
 
+// #TODO: Add check for heartbeat ACK (opcode 11)
 func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(1) * time.Millisecond)
 	var heartbeatinterval int
