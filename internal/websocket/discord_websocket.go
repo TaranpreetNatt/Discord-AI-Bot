@@ -20,8 +20,8 @@ type WebSocketConn struct {
 	pingChan     chan *Payload
 }
 
-type HeartBeatInterval struct {
-	HeartBeatInterval int `json:"heartbeat_interval"`
+type HeartbeatInterval struct {
+	HeartbeatInterval int `json:"heartbeat_interval"`
 }
 
 type Payload struct {
@@ -31,7 +31,7 @@ type Payload struct {
 	EventName string          `json:"t"`
 }
 
-type HeartBeat struct {
+type Heartbeat struct {
 	Op   int `json:"op"`
 	Data int `json:"d"`
 }
@@ -69,7 +69,7 @@ func ParseMessage(data []byte) (*Payload, error) {
 	return &p, nil
 }
 
-func ParseHeartBeatInterval(data []byte) (int, error) {
+func ParseHeartbeatInterval(data []byte) (int, error) {
 	//#TODO: Create a helper function to validate []byte
 	if data == nil {
 		return 0, fmt.Errorf("Cannot parse nil data slice")
@@ -79,11 +79,11 @@ func ParseHeartBeatInterval(data []byte) (int, error) {
 		return 0, fmt.Errorf("Cannot parse an empty data slice")
 	}
 
-	var heartbeat HeartBeatInterval
+	var heartbeat HeartbeatInterval
 	if err := json.Unmarshal(data, &heartbeat); err != nil {
 		return 0, fmt.Errorf("Could not parse heartbeat payload: %v\n", err)
 	}
-	return heartbeat.HeartBeatInterval, nil
+	return heartbeat.HeartbeatInterval, nil
 	// return time.Duration(heartbeat.HeartBeatInterval) * time.Millisecond, nil
 }
 
@@ -130,7 +130,7 @@ func (w *WebSocketConn) GetMessages(ctx context.Context) {
 
 func (w *WebSocketConn) sendHeartBeat(ctx context.Context) error {
 
-	heartbeat := HeartBeat{Op: 1, Data: w.lastSequence}
+	heartbeat := Heartbeat{Op: 1, Data: w.lastSequence}
 	heartbeatmessage, err := json.Marshal(heartbeat)
 	if err != nil {
 		fmt.Printf("Error marshaling heartbeatmessage: %v\n", err)
@@ -155,7 +155,7 @@ func (w *WebSocketConn) sendHeartBeat(ctx context.Context) error {
 	return nil
 }
 
-func setJitter(heartbeatinterval int, rand float64) time.Duration {
+func setHeartbeatInterval(heartbeatinterval int, rand float64) time.Duration {
 	interval := float64(heartbeatinterval) * rand
 	return time.Duration(interval) * time.Millisecond
 }
@@ -172,7 +172,7 @@ func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 		case payload := <-w.pingChan:
 			if payload.Op == 10 {
 				var err error
-				heartbeatinterval, err = ParseHeartBeatInterval(payload.Data)
+				heartbeatinterval, err = ParseHeartbeatInterval(payload.Data)
 				if err != nil {
 					fmt.Printf("Error parsing heartbeat interval: %v\n", err)
 					return
@@ -181,12 +181,12 @@ func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 			if err := w.sendHeartBeat(ctx); err != nil {
 				return
 			}
-			ticker.Reset(setJitter(heartbeatinterval, rand.Float64()))
+			ticker.Reset(setHeartbeatInterval(heartbeatinterval, rand.Float64()))
 		case <-ticker.C:
 			if err := w.sendHeartBeat(ctx); err != nil {
 				return
 			}
-			ticker.Reset(setJitter(heartbeatinterval, rand.Float64()))
+			ticker.Reset(setHeartbeatInterval(heartbeatinterval, rand.Float64()))
 		}
 	}
 }
