@@ -68,7 +68,7 @@ func main() {
 
 	err := bot.StartBot(cancelCtx, config.BOT_TOKEN, config.API_BASE)
 	if err != nil {
-		fmt.Println(err)
-		panic(err)
+		fmt.Printf("Error starting bot: %v\n", err)
+		return
 	}
 }
