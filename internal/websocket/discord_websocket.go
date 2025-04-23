@@ -128,30 +128,22 @@ func (w *WebSocketConn) GetMessages(ctx context.Context) {
 	}
 }
 
-func (w *WebSocketConn) sendHeartBeat(ctx context.Context) error {
-
-	heartbeat := Heartbeat{Op: 1, Data: w.lastSequence}
-	heartbeatmessage, err := json.Marshal(heartbeat)
-	if err != nil {
-		fmt.Printf("Error marshaling heartbeatmessage: %v\n", err)
-		return err
-	}
-
+func (w *WebSocketConn) WriteConn(ctx context.Context, data []byte) error {
 	w.mu.Lock()
-	fmt.Println("Mutex locked in sendHeartBeat")
+	fmt.Println("Mutex locked to Write")
 
 	defer func() {
 		w.mu.Unlock()
-		fmt.Println("Mutex unlocked in sendHeartBeat")
+		fmt.Println("Mutex unlocked in Write")
 	}()
 
-	if err := w.Conn.Write(ctx, websocket.MessageText, heartbeatmessage); err != nil {
+	if err := w.Conn.Write(ctx, websocket.MessageText, data); err != nil {
 		fmt.Printf("Error writing to discord during heartbeat: %v\n", err)
 		w.mu.Unlock()
-		fmt.Println("Mutex unlocked in sendHeartBeat")
+		fmt.Println("Mutex unlocked in Write")
 		return err
 	}
-	fmt.Printf("Sent HeartBeat to Discord: %+v\n", heartbeat)
+	fmt.Println("Sent message successfully")
 	return nil
 }
 
@@ -164,6 +156,13 @@ func setHeartbeatInterval(heartbeatinterval int, rand float64) time.Duration {
 func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(1) * time.Millisecond)
 	var heartbeatinterval int
+
+	heartbeat := Heartbeat{Op: 1, Data: w.lastSequence}
+	heartbeatmessage, err := json.Marshal(heartbeat)
+	if err != nil {
+		fmt.Printf("Error marshaling heartbeatmessage: %v\n", err)
+		return
+	}
 
 	for {
 		select {
@@ -178,12 +177,12 @@ func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 					return
 				}
 			}
-			if err := w.sendHeartBeat(ctx); err != nil {
+			if err := w.WriteConn(ctx, heartbeatmessage); err != nil {
 				return
 			}
 			ticker.Reset(setHeartbeatInterval(heartbeatinterval, rand.Float64()))
 		case <-ticker.C:
-			if err := w.sendHeartBeat(ctx); err != nil {
+			if err := w.WriteConn(ctx, heartbeatmessage); err != nil {
 				return
 			}
 			ticker.Reset(setHeartbeatInterval(heartbeatinterval, rand.Float64()))
