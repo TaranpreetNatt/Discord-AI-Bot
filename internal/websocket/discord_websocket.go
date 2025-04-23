@@ -138,8 +138,6 @@ func (w *WebSocketConn) WriteConn(ctx context.Context, data []byte) error {
 
 	if err := w.Conn.Write(ctx, websocket.MessageText, data); err != nil {
 		fmt.Printf("Error writing to discord during heartbeat: %v\n", err)
-		w.mu.Unlock()
-		fmt.Println("Mutex unlocked in Write")
 		return err
 	}
 	fmt.Println("Sent message successfully")
