@@ -84,7 +84,6 @@ func ParseHeartbeatInterval(data []byte) (int, error) {
 		return 0, fmt.Errorf("Could not parse heartbeat payload: %v\n", err)
 	}
 	return heartbeat.HeartbeatInterval, nil
-	// return time.Duration(heartbeat.HeartBeatInterval) * time.Millisecond, nil
 }
 
 func (w *WebSocketConn) GetMessages(ctx context.Context) {
@@ -117,7 +116,7 @@ func (w *WebSocketConn) GetMessages(ctx context.Context) {
 				fmt.Printf("Payload: %+v\n", payload)
 				w.lastSequence = payload.Sequence
 
-				if payload.Op == 10 || payload.Op == 1 {
+				if payload.Op == 10 || payload.Op == 1 || payload.Op == 11 {
 					w.pingChan <- payload
 					continue
 				}
@@ -152,9 +151,10 @@ func setHeartbeatInterval(heartbeatinterval int, rand float64) time.Duration {
 	return time.Duration(interval) * time.Millisecond
 }
 
-// #TODO: Add check for heartbeat ACK (opcode 11)
+// TODO:If there is no heartbeat response from discord, add reconnect
 func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(1) * time.Millisecond)
+	heartbeatAckTimer := time.NewTicker(time.Duration(1) * time.Millisecond)
 	var heartbeatinterval int
 
 	heartbeat := Heartbeat{Op: 1, Data: w.lastSequence}
@@ -177,15 +177,25 @@ func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 					return
 				}
 			}
+
+			if payload.Op == 11 {
+				heartbeatAckTimer.Reset(time.Duration(120) * time.Second)
+				continue
+			}
 			if err := w.WriteConn(ctx, heartbeatmessage); err != nil {
 				return
 			}
+			heartbeatAckTimer.Reset(time.Duration(3) * time.Second)
 			ticker.Reset(setHeartbeatInterval(heartbeatinterval, rand.Float64()))
 		case <-ticker.C:
 			if err := w.WriteConn(ctx, heartbeatmessage); err != nil {
 				return
 			}
+			heartbeatAckTimer.Reset(time.Duration(3) * time.Second)
 			ticker.Reset(setHeartbeatInterval(heartbeatinterval, rand.Float64()))
+		case <-heartbeatAckTimer.C:
+			fmt.Println("No heartbeat response from discord")
+			return
 		}
 	}
 }
