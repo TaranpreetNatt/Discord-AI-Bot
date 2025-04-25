@@ -151,8 +151,8 @@ func setHeartbeatInterval(heartbeatinterval int, rand float64) time.Duration {
 
 // TODO:If there is no heartbeat response from discord, add reconnect
 func (w *WebSocketConn) PingDiscord(ctx context.Context) {
-	ticker := time.NewTicker(time.Duration(1) * time.Millisecond)
-	heartbeatAckTimer := time.NewTicker(time.Duration(1) * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(5) * time.Second)
+	heartbeatAckTimer := time.NewTicker(time.Duration(5) * time.Second)
 	var heartbeatinterval int
 
 	heartbeat := Heartbeat{Op: 1, Data: w.lastSequence}
@@ -183,13 +183,13 @@ func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 			if err := w.WriteConn(ctx, heartbeatmessage); err != nil {
 				return
 			}
-			heartbeatAckTimer.Reset(time.Duration(3) * time.Second)
+			heartbeatAckTimer.Reset(time.Duration(5) * time.Second)
 			ticker.Reset(setHeartbeatInterval(heartbeatinterval, rand.Float64()))
 		case <-ticker.C:
 			if err := w.WriteConn(ctx, heartbeatmessage); err != nil {
 				return
 			}
-			heartbeatAckTimer.Reset(time.Duration(3) * time.Second)
+			heartbeatAckTimer.Reset(time.Duration(5) * time.Second)
 			ticker.Reset(setHeartbeatInterval(heartbeatinterval, rand.Float64()))
 		case <-heartbeatAckTimer.C:
 			fmt.Println("No heartbeat response from discord")
