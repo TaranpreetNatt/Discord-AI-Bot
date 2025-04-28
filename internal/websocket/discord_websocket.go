@@ -27,13 +27,13 @@ type HeartbeatInterval struct {
 type Payload struct {
 	Op        int             `json:"op"`
 	Data      json.RawMessage `json:"d"`
-	Sequence  int             `json:"s"`
+	Sequence  *int            `json:"s,omitempty"`
 	EventName string          `json:"t"`
 }
 
 type Heartbeat struct {
-	Op   int `json:"op"`
-	Data int `json:"d"`
+	Op   int  `json:"op"`
+	Data *int `json:"d"`
 }
 
 func NewWebsocketConnection(ctx context.Context, url string) (*WebSocketConn, error) {
@@ -72,11 +72,11 @@ func ParseMessage(data []byte) (*Payload, error) {
 func ParseHeartbeatInterval(data []byte) (int, error) {
 	//#TODO: Create a helper function to validate []byte
 	if data == nil {
-		return 0, fmt.Errorf("Cannot parse nil data slice")
+		return 0, fmt.Errorf("Cannot parse nil data slice\n")
 	}
 
 	if len(data) == 0 {
-		return 0, fmt.Errorf("Cannot parse an empty data slice")
+		return 0, fmt.Errorf("Cannot parse an empty data slice\n")
 	}
 
 	var heartbeat HeartbeatInterval
@@ -104,17 +104,19 @@ func (w *WebSocketConn) GetMessages(ctx context.Context) {
 				//TODO: Change from ReadAll to using the reader.read and implement a max message size
 				data, err := io.ReadAll(reader)
 				if err != nil {
-					fmt.Printf("Error reading all of discord websocket message: %v", err)
+					fmt.Printf("Error reading all of discord websocket message: %v\n", err)
 					return
 				}
 
 				payload, err := ParseMessage(data)
 				if err != nil {
-					fmt.Printf("Error parsing payload: %v", err)
+					fmt.Printf("Error parsing payload: %v\n", err)
 					return
 				}
 				fmt.Printf("Payload: %+v\n", payload)
-				w.lastSequence = payload.Sequence
+				if payload.Op == 0 && payload.Sequence != nil && *payload.Sequence > 0 {
+					w.lastSequence = *payload.Sequence
+				}
 
 				if payload.Op == 10 || payload.Op == 1 || payload.Op == 11 {
 					w.pingChan <- payload
@@ -151,11 +153,17 @@ func setHeartbeatInterval(heartbeatinterval int, rand float64) time.Duration {
 
 // TODO:If there is no heartbeat response from discord, add reconnect
 func (w *WebSocketConn) PingDiscord(ctx context.Context) {
+
 	ticker := time.NewTicker(time.Duration(5) * time.Second)
 	heartbeatAckTimer := time.NewTicker(time.Duration(5) * time.Second)
 	var heartbeatinterval int
 
-	heartbeat := Heartbeat{Op: 1, Data: w.lastSequence}
+	var sequence *int
+	if w.lastSequence > 0 {
+		sequence = &w.lastSequence
+	}
+	heartbeat := Heartbeat{Op: 1, Data: sequence}
+	fmt.Printf("heartbeat message %v\n", w.lastSequence)
 	heartbeatmessage, err := json.Marshal(heartbeat)
 	if err != nil {
 		fmt.Printf("Error marshaling heartbeatmessage: %v\n", err)
