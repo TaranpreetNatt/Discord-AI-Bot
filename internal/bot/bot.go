@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	websocket "github.com/taranpreetnatt/Discord-AI-Bot/internal/websocket"
 	"net/http"
 	"time"
+
+	websocket "github.com/taranpreetnatt/Discord-AI-Bot/internal/websocket"
 )
 
 const (
@@ -75,7 +76,7 @@ func StartBot(ctx context.Context, botToken, apiBase string) error {
 	}
 	fmt.Println("URL: " + url)
 
-	conn, err := websocket.NewWebsocketConnection(ctx, url)
+	conn, err := websocket.NewWebsocketConnection(ctx, url, botToken)
 	if err != nil {
 		return err
 	}
