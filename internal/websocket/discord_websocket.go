@@ -13,11 +13,14 @@ import (
 )
 
 type WebSocketConn struct {
-	Conn         *websocket.Conn
-	mu           sync.Mutex
-	lastSequence int
-	msgChan      chan *Payload
-	pingChan     chan *Payload
+	Conn                        *websocket.Conn
+	mu                          sync.Mutex
+	lastSequence                int
+	payloadChan                 chan *Payload
+	pingChan                    chan *Payload
+	initialHeartbeatAckReceived bool
+	resumeUrl                   string
+	Token                       string
 }
 
 type HeartbeatInterval struct {
@@ -36,17 +39,39 @@ type Heartbeat struct {
 	Data *int `json:"d"`
 }
 
-func NewWebsocketConnection(ctx context.Context, url string) (*WebSocketConn, error) {
+type ConnectionProperties struct {
+	Os      string `json:"os"`
+	Browser string `json:"browser"`
+	Device  string `json:"device"`
+}
+
+type IdentifyData struct {
+	//#TODO: Hide token from log output
+	Token           string               `json:"token"`
+	Properties      ConnectionProperties `json:"properties"`
+	Compress        *bool                `json:"compress,omitempty"`
+	Large_threshold *int                 `json:"large_threshold,omitempty"`
+	Shard           *[2]int              `json:"shard,omitempty"`
+	Intents         int                  `json:"intents"`
+}
+
+type Identify struct {
+	Op   int          `json:"op"`
+	Data IdentifyData `json:"d"`
+}
+
+func NewWebsocketConnection(ctx context.Context, url string, token string) (*WebSocketConn, error) {
 	conn, resp, err := websocket.Dial(ctx, url, nil)
 	if err != nil || resp.StatusCode != 101 {
 		return nil, fmt.Errorf("Error creating websocket connection, %v", err)
 	}
 
 	discordWebSocket := &WebSocketConn{
-		Conn:     conn,
-		mu:       sync.Mutex{},
-		msgChan:  make(chan *Payload, 100),
-		pingChan: make(chan *Payload, 10),
+		Conn:        conn,
+		mu:          sync.Mutex{},
+		payloadChan: make(chan *Payload, 100),
+		pingChan:    make(chan *Payload, 10),
+		Token:       token,
 	}
 
 	return discordWebSocket, nil
@@ -96,7 +121,7 @@ func (w *WebSocketConn) GetMessages(ctx context.Context) {
 		default:
 			messageType, reader, err := w.Conn.Reader(ctx)
 			if err != nil {
-				fmt.Printf("Error reading from websocket connection: %v", err)
+				fmt.Printf("Error reading from websocket connection: %v\n", err)
 				return
 			}
 
@@ -118,11 +143,7 @@ func (w *WebSocketConn) GetMessages(ctx context.Context) {
 					w.lastSequence = *payload.Sequence
 				}
 
-				if payload.Op == 10 || payload.Op == 1 || payload.Op == 11 {
-					w.pingChan <- payload
-					continue
-				}
-				w.msgChan <- payload
+				w.payloadChan <- payload
 			}
 		}
 
@@ -153,9 +174,12 @@ func setHeartbeatInterval(heartbeatinterval int, rand float64) time.Duration {
 
 // TODO:If there is no heartbeat response from discord, add reconnect
 func (w *WebSocketConn) PingDiscord(ctx context.Context) {
-
 	ticker := time.NewTicker(time.Duration(5) * time.Second)
+	defer ticker.Stop()
+
 	heartbeatAckTimer := time.NewTicker(time.Duration(5) * time.Second)
+	defer heartbeatAckTimer.Stop()
+
 	var heartbeatinterval int
 
 	var sequence *int
@@ -163,8 +187,8 @@ func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 		sequence = &w.lastSequence
 	}
 	heartbeat := Heartbeat{Op: 1, Data: sequence}
-	fmt.Printf("heartbeat message %v\n", w.lastSequence)
 	heartbeatmessage, err := json.Marshal(heartbeat)
+
 	if err != nil {
 		fmt.Printf("Error marshaling heartbeatmessage: %v\n", err)
 		return
@@ -206,13 +230,51 @@ func (w *WebSocketConn) PingDiscord(ctx context.Context) {
 	}
 }
 
+func (w *WebSocketConn) discordIdentify(ctx context.Context) {
+	if err := ctx.Err(); err != nil {
+		fmt.Println("Context cancelled:", err)
+		return
+	}
+
+	connectionProperties := ConnectionProperties{Os: "linux_bot", Browser: "bot", Device: "bot"}
+	identifyData := IdentifyData{
+		Token:      w.Token,
+		Properties: connectionProperties,
+		Intents:    67584,
+	}
+	identify := Identify{Op: 2, Data: identifyData}
+
+	identifyMessage, err := json.Marshal(identify)
+	if err != nil {
+		fmt.Printf("Error marshaling identify payload: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Sending identify to discord: %+v\n", identify)
+	if err := w.WriteConn(ctx, identifyMessage); err != nil {
+		fmt.Printf("Error writing identify payload to websocker: %v\n", err)
+		return
+	}
+}
+
 func (w *WebSocketConn) Coordinator(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-w.msgChan:
-			fmt.Printf("Message is %+v\n", msg)
+		case payload := <-w.payloadChan:
+			fmt.Printf("Payload is %+v\n", payload)
+
+			if payload.Op == 10 || payload.Op == 1 || payload.Op == 11 {
+				w.pingChan <- payload
+			}
+
+			if payload.Op == 11 {
+				if !w.initialHeartbeatAckReceived {
+					w.initialHeartbeatAckReceived = true
+					w.discordIdentify(ctx)
+				}
+			}
 		}
 	}
 }
