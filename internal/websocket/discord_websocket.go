@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/bwmarrin/snowflake"
 	"io"
 	"math/rand/v2"
 	"sync"
@@ -12,6 +13,8 @@ import (
 	"github.com/coder/websocket"
 )
 
+type SnowflakeID snowflake.ID
+
 type WebSocketConn struct {
 	Conn                        *websocket.Conn
 	mu                          sync.Mutex
@@ -19,8 +22,9 @@ type WebSocketConn struct {
 	payloadChan                 chan *Payload
 	pingChan                    chan *Payload
 	initialHeartbeatAckReceived bool
-	resumeUrl                   string
 	Token                       string
+	resumeUrl                   string
+	sessionId                   string
 }
 
 type HeartbeatInterval struct {
@@ -58,6 +62,45 @@ type IdentifyData struct {
 type Identify struct {
 	Op   int          `json:"op"`
 	Data IdentifyData `json:"d"`
+}
+
+type User struct {
+	Id            SnowflakeID `json:"id"`
+	Username      string      `json:"username"`
+	Discriminator string      `json:"discriminator"`
+}
+
+type UnavailableGuild struct {
+	Id          SnowflakeID `json:"id"`
+	Unavailable bool        `json:"unavailable"`
+}
+
+type PartialApplication struct {
+	Id    SnowflakeID `json:"id"`
+	Flags int         `json:"flags"`
+}
+
+type Ready struct {
+	V           int                `json:"v"`
+	User        User               `json:"user"`
+	Guilds      []UnavailableGuild `json:"guilds"`
+	SessionId   string             `json:"session_id"`
+	ResumeUrl   string             `json:"resume_gateway_url"`
+	Shard       *[2]int            `json:"shard,omitempty"`
+	Application PartialApplication `json:"application"`
+}
+
+func (id *SnowflakeID) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return fmt.Errorf("Error unmarshalJSON for snowflake data: %v", err)
+	}
+	ID, err := snowflake.ParseString(str)
+	if err != nil {
+		return fmt.Errorf("Error unmarshalJSON for snowflake id: %v", err)
+	}
+	*id = SnowflakeID(ID)
+	return nil
 }
 
 func NewWebsocketConnection(ctx context.Context, url string, token string) (*WebSocketConn, error) {
@@ -257,6 +300,16 @@ func (w *WebSocketConn) discordIdentify(ctx context.Context) {
 	}
 }
 
+func (w *WebSocketConn) parseReadyData(data []byte) (*Ready, error) {
+	var payload Ready
+
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, fmt.Errorf("Error in parseReadyData: %v", err)
+	}
+
+	return &payload, nil
+}
+
 func (w *WebSocketConn) Coordinator(ctx context.Context) {
 	for {
 		select {
@@ -274,6 +327,16 @@ func (w *WebSocketConn) Coordinator(ctx context.Context) {
 					w.initialHeartbeatAckReceived = true
 					w.discordIdentify(ctx)
 				}
+			}
+
+			if payload.Op == 0 && payload.EventName == "READY" {
+				readyPayload, err := w.parseReadyData(payload.Data)
+				if err != nil {
+					return
+				}
+				fmt.Printf("\nReady Payload: %+v\n", readyPayload)
+				w.resumeUrl = readyPayload.ResumeUrl
+				w.sessionId = readyPayload.SessionId
 			}
 		}
 	}
