@@ -69,6 +69,17 @@ type Heartbeat struct {
 	Data *int `json:"d"`
 }
 
+type Resume struct {
+	Op   int         `json:"op"`
+	Data *ResumeData `json:"d"`
+}
+
+type ResumeData struct {
+	Token     string `json:"token"`
+	SessionId string `json:"session_id"`
+	Seq       int    `json:"seq"`
+}
+
 type ConnectionProperties struct {
 	Os      string `json:"os"`
 	Browser string `json:"browser"`
@@ -86,7 +97,9 @@ type IdentifyData struct {
 }
 
 type Identify struct {
-	Op   int          `json:"op"`
+	Op int `json:"op"`
+	//TODO: Make this a pointer
+	//TODO: Refactor the Identify and Heartbeat to be one general struct
 	Data IdentifyData `json:"d"`
 }
 
@@ -334,6 +347,42 @@ func (w *WebSocketConn) parseReadyData(data []byte) (*Ready, error) {
 	}
 
 	return &payload, nil
+}
+
+func (w *WebSocketConn) Reconnect(ctx context.Context) (*WebSocketConn, error) {
+
+	resumeData := ResumeData{
+		Token:     w.Token,
+		SessionId: w.sessionId,
+		Seq:       w.lastSequence,
+	}
+
+	resume := Resume{
+		Op:   6,
+		Data: &resumeData,
+	}
+
+	conn, resp, err := websocket.Dial(ctx, w.resumeUrl, nil)
+	if err != nil || resp.StatusCode != 101 {
+		return nil, fmt.Errorf("Error creating websocket connection, %v\n", err)
+	}
+
+	discordWebSocket := &WebSocketConn{
+		Conn:        conn,
+		mu:          sync.Mutex{},
+		payloadChan: make(chan *Payload, 100),
+		pingChan:    make(chan *Payload, 10),
+		Token:       w.Token,
+	}
+
+	resumeByte, err := json.Marshal(resume)
+	if err != nil {
+		return nil, fmt.Errorf("Error marshiling resume payload during Reconnect: %v\n", err)
+	}
+	if err := w.WriteConn(ctx, resumeByte); err != nil {
+		return nil, fmt.Errorf("Error writing to conn during Reconnect: %v\n", err)
+	}
+	return discordWebSocket, nil
 }
 
 func (w *WebSocketConn) Coordinator(ctx context.Context) {
