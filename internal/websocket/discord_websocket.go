@@ -13,6 +13,32 @@ import (
 	"github.com/coder/websocket"
 )
 
+type GatewayCloseEventCodes struct {
+	Code        int
+	Description string
+	Explanation string
+	Reconnect   bool
+}
+
+var gatewayCloseEventCodes = map[int]GatewayCloseEventCodes{
+	4000: {Code: 4000, Description: "Unknown error", Explanation: "We're not sure what went wrong. Try reconnecting?", Reconnect: true},
+	4001: {Code: 4001, Description: "Unknown opcode", Explanation: "You sent an invalid Gateway opcode or an invalid payload for an opcode. Don't do that!", Reconnect: true},
+	4002: {Code: 4002, Description: "Decode error", Explanation: "You sent an invalid payload to Discord. Don't do that!", Reconnect: true},
+	4003: {Code: 4003, Description: "Not authenticated", Explanation: "You sent us a payload prior to identifying, or this session has been invalidated.", Reconnect: true},
+	4004: {Code: 4004, Description: "Authentication failed", Explanation: "The account token sent with your identify payload is incorrect.", Reconnect: false},
+	4005: {Code: 4005, Description: "Already authenticated", Explanation: "You sent more than one identify payload. Don't do that!", Reconnect: true},
+	4007: {Code: 4007, Description: "Invalid seq", Explanation: "The sequence sent when resuming the session was invalid. Reconnect and start a new session.", Reconnect: true},
+	4008: {Code: 4008, Description: "Rate limited", Explanation: "Woah nelly! You're sending payloads to us too quickly. Slow it down! You will be disconnected on receiving this.", Reconnect: true},
+	4009: {Code: 4009, Description: "Session timed out", Explanation: "Your session timed out. Reconnect and start a new one.", Reconnect: true},
+	4010: {Code: 4010, Description: "Invalid shard", Explanation: "You sent us an invalid shard when identifying.", Reconnect: false},
+	4011: {Code: 4011, Description: "Sharding required", Explanation: "The session would have handled too many guilds - you are required to shard your connection in order to connect.", Reconnect: false},
+	4012: {Code: 4012, Description: "Invalid API version", Explanation: "You sent an invalid version for the gateway.", Reconnect: false},
+	4013: {Code: 4013, Description: "Invalid intent(s)", Explanation: "You sent an invalid intent for a Gateway Intent. You may have incorrectly calculated the bitwise value.", Reconnect: false},
+	4014: {Code: 4014, Description: "Disallowed intent(s)", Explanation: "You sent a disallowed intent for a Gateway Intent. You may have tried to specify an intent that you have not enabled or are not approved for.", Reconnect: false},
+	7:    {Code: 7, Description: "Reconnect", Explanation: "Discord requested a reconnect, likely due to server changes.", Reconnect: true},
+	9:    {Code: 9, Description: "Invalid Session", Explanation: "The session is invalid. Reconnect and resume if possible, or start a new session.", Reconnect: true},
+}
+
 type SnowflakeID snowflake.ID
 
 type WebSocketConn struct {
@@ -337,6 +363,10 @@ func (w *WebSocketConn) Coordinator(ctx context.Context) {
 				fmt.Printf("\nReady Payload: %+v\n", readyPayload)
 				w.resumeUrl = readyPayload.ResumeUrl
 				w.sessionId = readyPayload.SessionId
+			}
+
+			if gatewayCloseEventCodes[payload.Op].Reconnect {
+				fmt.Println("Attempting reconnect")
 			}
 		}
 	}
