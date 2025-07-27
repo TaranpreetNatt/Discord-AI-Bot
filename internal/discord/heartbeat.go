@@ -56,6 +56,12 @@ func (h *HeartbeatManager) SetInterval(intervalMs int) {
 	jitter := rand.Float64()
 	h.interval = time.Duration(float64(intervalMs)*jitter) * time.Millisecond
 
+	// If ticker is already running, restart it with new interval
+	if h.ticker != nil {
+		h.ticker.Stop()
+		h.ticker = time.NewTicker(h.interval)
+	}
+
 	h.logger.Info("Heartbeat interval set",
 		logger.Field{Key: "interval", Value: h.interval})
 }
@@ -84,6 +90,21 @@ func (h *HeartbeatManager) UpdateSequence(seq int) {
 // run is the main heartbeat loop
 func (h *HeartbeatManager) run(ctx context.Context, conn *Connection) {
 	defer h.cleanup()
+
+	// Wait for interval to be set before starting ticker
+	for h.interval == 0 {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(100 * time.Millisecond):
+			// Keep checking until interval is set
+		}
+	}
+
+	// Now create the ticker with the set interval
+	h.mu.Lock()
+	h.ticker = time.NewTicker(h.interval)
+	h.mu.Unlock()
 
 	for {
 		select {
@@ -170,10 +191,12 @@ func (h *HeartbeatManager) cleanup() {
 
 	if h.ticker != nil {
 		h.ticker.Stop()
+		h.ticker = nil
 	}
 
 	if h.ackTimer != nil {
 		h.ackTimer.Stop()
+		h.ackTimer = nil
 	}
 
 	h.started = false
