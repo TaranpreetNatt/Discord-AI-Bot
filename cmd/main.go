@@ -10,6 +10,7 @@ import (
 
 	"github.com/joho/godotenv"
 	bot "github.com/taranpreetnatt/Discord-AI-Bot/internal/bot"
+	logger "github.com/taranpreetnatt/Discord-AI-Bot/internal/logger"
 )
 
 type Config struct {
@@ -51,6 +52,11 @@ func getEnv(key string) string {
 
 func main() {
 	config := loadConfig()
+
+	l, _ := logger.NewZapAdapter()
+	if config.ENV == "dev" {
+		l.SetLevel(logger.LevelDebug)
+	}
 
 	ctx := context.Background()
 
