@@ -2,15 +2,14 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/joho/godotenv"
-	bot "github.com/taranpreetnatt/Discord-AI-Bot/internal/bot"
-	logger "github.com/taranpreetnatt/Discord-AI-Bot/internal/logger"
+	"github.com/taranpreetnatt/Discord-AI-Bot/internal/discord"
+	"github.com/taranpreetnatt/Discord-AI-Bot/internal/logger"
 )
 
 type Config struct {
@@ -53,28 +52,40 @@ func getEnv(key string) string {
 func main() {
 	config := loadConfig()
 
-	l, _ := logger.NewZapAdapter()
+	// Initialize logger
+	l, err := logger.NewZapAdapter()
+	if err != nil {
+		log.Fatalf("Failed to create logger: %v", err)
+	}
+	defer l.Sync()
+
 	if config.ENV == "dev" {
 		l.SetLevel(logger.LevelDebug)
 	}
 
-	ctx := context.Background()
+	// Create Discord client
+	client := discord.NewClient(config.BOT_TOKEN, config.API_BASE, l)
 
-	cancelCtx, cancel := context.WithCancel(ctx)
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Handle OS signals for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		<-sigChan
-		fmt.Println("Shutting bot down due to cancellation")
+		l.Info("Received shutdown signal")
 		cancel()
 	}()
 
-	err := bot.StartBot(cancelCtx, config.BOT_TOKEN, config.API_BASE)
-	if err != nil {
-		fmt.Printf("Error starting bot: %v\n", err)
+	// Start the bot
+	l.Info("Starting Discord bot")
+	if err := client.Start(ctx); err != nil {
+		l.Error("Bot stopped with error", logger.Field{Key: "error", Value: err})
 		return
 	}
+
+	l.Info("Bot shutdown complete")
 }
