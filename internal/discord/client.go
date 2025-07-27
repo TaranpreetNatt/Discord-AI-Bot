@@ -33,6 +33,7 @@ type Client struct {
 	cancel context.CancelFunc
 }
 
+// NewClient creates a new Discord client
 func NewClient(token, apiBase string, logger logger.Logger) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -44,9 +45,10 @@ func NewClient(token, apiBase string, logger logger.Logger) *Client {
 		eventChan:    make(chan *Event, 100),
 		shutdownChan: make(chan struct{}),
 		ctx:          ctx,
-		cance:        cancel,
+		cancel:       cancel,
 	}
 
+	// Initialize components
 	client.gateway = NewGateway(apiBase, logger)
 	client.connection = NewConnection(logger)
 	client.heartbeat = NewHeartbeatManager(logger)
@@ -126,8 +128,7 @@ func (c *Client) startWithReconnect(ctx context.Context, gatewayURL string) erro
 // connect establishes a connection to Discord
 func (c *Client) connect(ctx context.Context, gatewayURL string) error {
 	// Create WebSocket connection
-	conn, err := c.connection.Connect(ctx, gatewayURL)
-	if err != nil {
+	if _, err := c.connection.Connect(ctx, gatewayURL); err != nil {
 		return fmt.Errorf("failed to connect to gateway: %w", err)
 	}
 
