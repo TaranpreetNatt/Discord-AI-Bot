@@ -222,7 +222,6 @@ func TestGateway_Context(t *testing.T) {
 
 	token := "correct_token"
 	gateway := NewGateway(server.URL, l)
-
 	url, err := gateway.GetURL(ctxTimeout, token)
 
 	if err == nil {
@@ -231,5 +230,23 @@ func TestGateway_Context(t *testing.T) {
 
 	if url != "" {
 		t.Fatal("Expected url to be empty when context timeouts before server returns data")
+	}
+}
+
+func TestGateway_Wrong_ApiBase(t *testing.T) {
+	l, _ := logger.NewZapAdapter()
+
+	ctx := context.Background()
+	token := "correct_token"
+	wrongUrl := "https://nonexistent-domain-12345.com"
+	gateway := NewGateway(wrongUrl, l)
+
+	url, err := gateway.GetURL(ctx, token)
+	if err == nil {
+		t.Fatal("Expected an error with wrong apiBase specifed")
+	}
+
+	if url != "" {
+		t.Fatal("Expected url to be empty when wrong apiBase is supplied")
 	}
 }
