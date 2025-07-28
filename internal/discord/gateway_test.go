@@ -33,6 +33,11 @@ type MockConfig struct {
 func MockServer(config MockConfig) *httptest.Server {
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
 
+		if config.StatusCode == 500 {
+			writer.WriteHeader(config.StatusCode)
+			return
+		}
+
 		if config.Delay > 0 {
 			time.Sleep(config.Delay)
 		}
@@ -169,5 +174,30 @@ func TestGateway_Timeout(t *testing.T) {
 
 	if url != "" {
 		t.Fatal("Expected url to be empty when client times out")
+	}
+}
+
+func TestGateway_ServerError(t *testing.T) {
+	config := MockConfig{
+		ValidToken:      "correct_token",
+		StatusCode:      500,
+		ReturnValidJson: false,
+	}
+	server := MockServer(config)
+	server.Start()
+	defer server.Close()
+
+	l, _ := logger.NewZapAdapter()
+	ctx := context.Background()
+	token := "correct_token"
+	gateway := NewGateway(server.URL, l)
+
+	url, err := gateway.GetURL(ctx, token)
+	if err == nil {
+		t.Fatal("Expected an error when server returns 500")
+	}
+
+	if url != "" {
+		t.Fatal("Expected url to be empty when server returns 500")
 	}
 }
