@@ -17,16 +17,18 @@ type Gateway struct {
 	client  *http.Client
 }
 
+type SessionStartLimit struct {
+	Total          int `json:"total"`
+	Remaining      int `json:"remaining"`
+	ResetAfter     int `json:"reset_after"`
+	MaxConcurrency int `json:"max_concurrency"`
+}
+
 // GatewayResponse represents the response from Discord's gateway endpoint
 type GatewayResponse struct {
-	URL               string `json:"url"`
-	Shards            int    `json:"shards"`
-	SessionStartLimit struct {
-		Total          int `json:"total"`
-		Remaining      int `json:"remaining"`
-		ResetAfter     int `json:"reset_after"`
-		MaxConcurrency int `json:"max_concurrency"`
-	} `json:"session_start_limit"`
+	URL               string            `json:"url"`
+	Shards            int               `json:"shards"`
+	SessionStartLimit SessionStartLimit `json:"session_start_limit"`
 }
 
 // NewGateway creates a new gateway client
@@ -36,6 +38,16 @@ func NewGateway(apiBase string, logger logger.Logger) *Gateway {
 		logger:  logger,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+func NewGatewayWithTimeout(apiBase string, logger logger.Logger, timeout time.Duration) *Gateway {
+	return &Gateway{
+		apiBase: apiBase,
+		logger:  logger,
+		client: &http.Client{
+			Timeout: timeout,
 		},
 	}
 }
