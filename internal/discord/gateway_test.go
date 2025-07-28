@@ -155,7 +155,7 @@ func TestGateway_Timeout(t *testing.T) {
 	config := MockConfig{
 		ValidToken:      "correct_token",
 		StatusCode:      200,
-		ReturnValidJson: false,
+		ReturnValidJson: true,
 		Delay:           2 * timeout,
 	}
 	server := MockServer(config)
@@ -181,7 +181,7 @@ func TestGateway_ServerError(t *testing.T) {
 	config := MockConfig{
 		ValidToken:      "correct_token",
 		StatusCode:      500,
-		ReturnValidJson: false,
+		ReturnValidJson: true,
 	}
 	server := MockServer(config)
 	server.Start()
@@ -199,5 +199,37 @@ func TestGateway_ServerError(t *testing.T) {
 
 	if url != "" {
 		t.Fatal("Expected url to be empty when server returns 500")
+	}
+}
+
+func TestGateway_Context(t *testing.T) {
+	l, _ := logger.NewZapAdapter()
+	timeout := 100 * time.Millisecond
+
+	config := MockConfig{
+		ValidToken:      "correct_token",
+		StatusCode:      200,
+		ReturnValidJson: true,
+		Delay:           2 * timeout,
+	}
+	server := MockServer(config)
+	server.Start()
+	defer server.Close()
+
+	ctx := context.Background()
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, timeout)
+	defer cancelFunc()
+
+	token := "correct_token"
+	gateway := NewGateway(server.URL, l)
+
+	url, err := gateway.GetURL(ctxTimeout, token)
+
+	if err == nil {
+		t.Fatal("Expected an error with context timeout")
+	}
+
+	if url != "" {
+		t.Fatal("Expected url to be empty when context timeouts before server returns data")
 	}
 }
