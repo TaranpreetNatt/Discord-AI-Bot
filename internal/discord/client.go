@@ -34,7 +34,19 @@ type Client struct {
 }
 
 // NewClient creates a new Discord client
-func NewClient(token, apiBase string, logger logger.Logger) *Client {
+func NewClient(token, apiBase string, logger logger.Logger) (*Client, error) {
+	if token == "" {
+		return nil, fmt.Errorf("token cannot be empty")
+	}
+
+	if apiBase == "" {
+		return nil, fmt.Errorf("apiBase cannot be empty")
+	}
+
+	if logger == nil {
+		return nil, fmt.Errorf("logger cannot be nil")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	client := &Client{
@@ -53,7 +65,7 @@ func NewClient(token, apiBase string, logger logger.Logger) *Client {
 	client.connection = NewConnection(logger)
 	client.heartbeat = NewHeartbeatManager(logger)
 
-	return client
+	return client, nil
 }
 
 // Start starts the Discord client

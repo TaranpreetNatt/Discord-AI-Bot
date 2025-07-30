@@ -64,7 +64,10 @@ func main() {
 	}
 
 	// Create Discord client
-	client := discord.NewClient(config.BOT_TOKEN, config.API_BASE, l)
+	client, err := discord.NewClient(config.BOT_TOKEN, config.API_BASE, l)
+	if err != nil {
+		log.Fatalf("Failed to create client, with error: %s", err)
+	}
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
