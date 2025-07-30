@@ -1,19 +1,9 @@
 package discord
 
 import (
+	"context"
 	"testing"
 )
-
-// Test NewClient
-/*
-	- Happy path
-	- What happens if the token is empty? Should not be empty
-	- What happens if the url is empty? Should not be empty
-	- What happens if the logger is nil?
-	- Is the gateway being initialized correctly?
-	- Is the connection being initialized correctly?
-	- is the heartbreat being initialized correctly?
-*/
 
 func TestNewClient_Success(t *testing.T) {
 	validToken := "valid_token"
@@ -35,5 +25,24 @@ func TestNewClient_Success(t *testing.T) {
 
 	if client.apiBase != validApiBase {
 		t.Fatalf("Expected apiBase %s, got %s", validApiBase, client.apiBase)
+	}
+}
+
+func TestClient_Start_Success(t *testing.T) {
+	ctx := context.Background()
+
+	token := "valid_token"
+	config := MockConfig{
+		ValidToken:      token,
+		StatusCode:      200,
+		ReturnValidJson: true,
+	}
+
+	apiBase := setupMockServer(t, config).URL
+	client, _ := NewClient(token, apiBase, setupLogger(t))
+
+	err := client.Start(ctx)
+	if err != nil {
+		t.Fatalf("Expected client to start without error, %s", err)
 	}
 }
