@@ -15,7 +15,7 @@ import (
 	- is the heartbreat being initialized correctly?
 */
 
-func TestNewClient_Inputs(t *testing.T) {
+func TestNewClient_Success(t *testing.T) {
 	validToken := "valid_token"
 	validApiBase := "valid_apiBase"
 	l := setupLogger(t)
