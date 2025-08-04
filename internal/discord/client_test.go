@@ -29,26 +29,7 @@ func TestNewClient_Success(t *testing.T) {
 	}
 }
 
-// func TestClient_Start_Success(t *testing.T) {
-// 	ctx := context.Background()
-//
-// 	token := "valid_token"
-// 	config := MockConfig{
-// 		ValidToken:      token,
-// 		StatusCode:      200,
-// 		ReturnValidJson: true,
-// 	}
-//
-// 	apiBase := setupMockServer(t, config).URL
-// 	client, _ := NewClient(token, apiBase, setupLogger(t))
-//
-// 	err := client.Start(ctx)
-// 	if err != nil {
-// 		t.Fatalf("Expected client to start without error, %s", err)
-// 	}
-// }
-
-func TestClient_Integration_WebSocketConnect(t *testing.T) {
+func TestClient_Integration_Start(t *testing.T) {
 	ctx := context.Background()
 
 	mockWsServer := NewWebSocketServer(t)
