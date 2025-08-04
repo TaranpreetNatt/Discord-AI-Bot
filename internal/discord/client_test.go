@@ -3,6 +3,7 @@ package discord
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestNewClient_Success(t *testing.T) {
@@ -28,21 +29,56 @@ func TestNewClient_Success(t *testing.T) {
 	}
 }
 
-func TestClient_Start_Success(t *testing.T) {
+// func TestClient_Start_Success(t *testing.T) {
+// 	ctx := context.Background()
+//
+// 	token := "valid_token"
+// 	config := MockConfig{
+// 		ValidToken:      token,
+// 		StatusCode:      200,
+// 		ReturnValidJson: true,
+// 	}
+//
+// 	apiBase := setupMockServer(t, config).URL
+// 	client, _ := NewClient(token, apiBase, setupLogger(t))
+//
+// 	err := client.Start(ctx)
+// 	if err != nil {
+// 		t.Fatalf("Expected client to start without error, %s", err)
+// 	}
+// }
+
+func TestClient_Integration_WebSocketConnect(t *testing.T) {
 	ctx := context.Background()
 
-	token := "valid_token"
+	mockWsServer := NewWebSocketServer(t)
+	defer mockWsServer.Close()
+
 	config := MockConfig{
-		ValidToken:      token,
+		ValidToken:      "valid_token",
 		StatusCode:      200,
 		ReturnValidJson: true,
+		WebSocketURL:    mockWsServer.URL(),
 	}
 
-	apiBase := setupMockServer(t, config).URL
-	client, _ := NewClient(token, apiBase, setupLogger(t))
+	server := setupMockServer(t, config)
 
-	err := client.Start(ctx)
+	client, err := NewClient("valid_token", server.URL, setupLogger(t))
 	if err != nil {
-		t.Fatalf("Expected client to start without error, %s", err)
+		t.Fatalf("Expected client to be created: %v", err)
 	}
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- client.Start(ctx)
+	}()
+
+	time.Sleep(5 * time.Second)
+	select {
+	case err := <-errChan:
+		t.Fatalf("Error in client startup, err: %v", err)
+	default:
+		t.Log("SUCCESS: client.Start() completed startup and is running")
+	}
+	mockWsServer.Close()
 }
