@@ -113,7 +113,7 @@ func NewWebSocketServer(t *testing.T) *MockWebSocketServer {
 
 		helloEvent := Event{
 			Op:   10,
-			Data: json.RawMessage(`{"heartbeat_interval": 4500}`),
+			Data: json.RawMessage(`{"heartbeat_interval": 450}`),
 		}
 		helloEventByte, err := json.Marshal(helloEvent)
 		if err != nil {
