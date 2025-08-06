@@ -64,7 +64,7 @@ func TestClient_Integration_Start(t *testing.T) {
 	mockWsServer.Close()
 }
 
-func TestClient_Integration_GatewayUrlFailure(t *testing.T) {
+func TestClient_Integration_GetURLFailure(t *testing.T) {
 	ctx := context.Background()
 
 	config := MockConfig{
@@ -83,5 +83,55 @@ func TestClient_Integration_GatewayUrlFailure(t *testing.T) {
 
 	if err := client.Start(ctx); err == nil {
 		t.Fatalf("Expected an error when server returns 500, %v", err)
+	}
+}
+
+func TestClient_Integration_WrongGatewayURL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping slow WrongGatewayURL test")
+	}
+
+	tests := []struct {
+		name         string
+		websocketURL string
+	}{
+		{
+			name:         "wrong protocol",
+			websocketURL: "http://example.com",
+		},
+		{
+			name:         "nonexistent_domain",
+			websocketURL: "wss://nonexistent-domain-12345.com",
+		},
+		{
+			name:         "invalid_port",
+			websocketURL: "wss://localhost:99999",
+		},
+		{
+			name:         "invalid_url_format",
+			websocketURL: "not-a-valid-url",
+		},
+	}
+
+	for _, tt := range tests {
+		config := MockConfig{
+			ValidToken:      "Valid_token",
+			StatusCode:      200,
+			ReturnValidJson: true,
+			WebSocketURL:    tt.websocketURL,
+		}
+
+		server := setupMockServer(t, config)
+		defer server.Close()
+
+		client, clientErr := NewClient(config.ValidToken, server.URL, setupLogger(t))
+		if clientErr != nil {
+			t.Fatalf("Error creating client, %v", clientErr)
+		}
+
+		err := client.Start(context.Background())
+		if err == nil {
+			t.Fatal("Expected websocket connection error")
+		}
 	}
 }
