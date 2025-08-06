@@ -88,7 +88,7 @@ func NewZapAdapter() (Logger, error) {
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	config.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 
-	z, err := config.Build(zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
+	z, err := config.Build(zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zap.ErrorLevel))
 	if err != nil {
 		return nil, err
 	}
